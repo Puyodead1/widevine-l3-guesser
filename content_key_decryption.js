@@ -138,12 +138,13 @@ EwIDAQAB
 
   WidevineCrypto.decryptContentKey = async function (sesid, sdat) {
     await this.initLog();
+    console.log(sdat);
     licenseRequest = SignedMessage.read(new Pbf(sdat.licenseRequest));
     licenseResponse = SignedMessage.read(new Pbf(sdat.licenseResponse));
-    //console.log("Decrypting?")
-    //console.log("Request (from us)")
+    console.log("Decrypting?");
+    console.log("Request (from us)");
     this.log(licenseRequest);
-    //console.log("Response")
+    console.log("Response");
     this.log(licenseResponse);
     if (licenseRequest.type != SignedMessage.MessageType.LICENSE_REQUEST.value)
       return;
@@ -189,7 +190,7 @@ EwIDAQAB
     );
 
     // iterate the keys we got to find those we want to decrypt (the content key(s))
-    const keys = [];
+    var keys = [];
     var contentKeys = [];
     for (currentKey of license.key) {
       if (currentKey.type != License.KeyContainer.KeyType.CONTENT.value)
@@ -209,7 +210,6 @@ EwIDAQAB
       );
       sdat.keys.set(toHexString(keyId), toHexString(decryptedKey));
       contentKeys.push(decryptedKey);
-      keys.push({ key: toHexString(decryptedKey), kid: toHexString(keyId) });
       this.log(
         "WidevineDecryptor: Session: " +
           sesid +
@@ -218,6 +218,7 @@ EwIDAQAB
           " Key: " +
           toHexString(decryptedKey)
       );
+      keys.push({ key: toHexString(decryptedKey), kid: toHexString(keyId) });
     }
 
     if (window.location.href.includes("netflix")) {
@@ -251,10 +252,6 @@ EwIDAQAB
     return contentKeys[0];
   };
 
-  //
-  // Helper functions
-  //
-
   async function processNetflix(keys) {
     //console.error("Netflix support is not implemented");
     const manifest = await window.getManifest();
@@ -276,10 +273,17 @@ EwIDAQAB
       return console.error("No english audio!");
     }
     const audioStream = audioStreams[audioStreams.length - 1];
+    // this finds the best quality
     const videoStream =
       manifest.video_tracks[0].streams[
         manifest.video_tracks[0].streams.length - 1
       ];
+    // this is to find a specific quality
+    // const videoStream = manifest.video_tracks[0].streams.find(
+    //   (x) => x.crop_h === 720
+    // );
+    // if (!videoStream) return console.error("no stream");
+
     const subtitleStream = manifest.timedtexttracks.find(
       (x) =>
         x.language === "en" &&
@@ -299,9 +303,6 @@ EwIDAQAB
       console.warn("No subtitle url");
     }
     const kid = videoStream.drmHeaderId;
-    console.log(
-      `[Downloader] Highest resolution is${videoStream.res_w}x${videoStream.res_h}`
-    );
 
     const metadata = await window.getMetadata();
 
@@ -435,6 +436,10 @@ EwIDAQAB
         .catch((e) => reject(e));
     });
   }
+
+  //
+  // Helper functions
+  //
 
   async function isRSAConsistent(publicKey, privateKey) {
     // See if the data is correctly decrypted after encryption
