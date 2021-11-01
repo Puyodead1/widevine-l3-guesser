@@ -245,19 +245,18 @@ EwIDAQAB
       } else {
         console.warn("Request was already sent!");
       }
-    } else if (window.location.href.includes("discoveryplus")) {
-      //
-      console.log("Detected DiscoveryPlus");
-      await processDiscoveryPlus(keys);
     } else {
       console.error("Platform not supported");
     }
+
+    // await submitKeysToDB(keys)
+    //   .then(() => console.log("Submitted keys to database!"))
+    //   .catch((e) => console.error("Error submitting keys to database!", e));
 
     return contentKeys[0];
   };
 
   async function processNetflix(keys) {
-    //console.error("Netflix support is not implemented");
     const manifest = await window.getManifest();
     if (!manifest) {
       console.error("No manifest");
@@ -270,17 +269,23 @@ EwIDAQAB
       );
     }
 
-    const audioStreams = manifest.audio_tracks
-      .find((x) => x.language === "en" && x.rawTrackType === "primary")
-      .streams.filter((x) => x.trackType === "PRIMARY");
+    const audioTracks = manifest.audio_tracks.filter(
+      (x) => x.language === "en" && x.rawTrackType === "primary"
+    );
+    const audioStreams = (
+      audioTracks.find((x) => x.channelsFormat === "5.1") ?? audioTracks[0]
+    ).streams.filter((x) => x.trackType === "PRIMARY");
+
     if (!audioStreams) {
       return console.error("No english audio!");
     }
     const audioStream = audioStreams[audioStreams.length - 1];
+    console.debug(`Selected Audio Stream:`, audioStream);
     const videoStream =
       manifest.video_tracks[0].streams[
         manifest.video_tracks[0].streams.length - 1
       ];
+    console.debug(`Selected Video Stream:`, videoStream);
 
     // const videoStream = manifest.video_tracks[0].streams.find(
     //   (x) => x.crop_h === 720
@@ -422,8 +427,21 @@ EwIDAQAB
     window.requestSent = true;
   }
 
-  async function processDiscoveryPlus(keys) {
-    console.error("DiscoveryPlus support is not finished");
+  function submitKeysToDB(keys) {
+    return new Promise((resolve, reject) => {
+      fetch("http://127.0.0.1:8982/submit", {
+        method: "POST",
+        body: JSON.stringify(keys),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then(async (r) => {
+          if (r.ok) resolve();
+          else reject(`${r.status}; ${await r.text()}`);
+        })
+        .catch((e) => reject(e));
+    });
   }
 
   function sendData(payload) {
